@@ -1,5 +1,12 @@
-import { ref } from 'vue';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    sendPasswordResetEmail,
+    onAuthStateChanged,
+    signOut,
+    type User
+} from 'firebase/auth';
 import { auth } from '../firebase';
 import { useRouter } from 'vue-router';
 import { FirebaseError } from 'firebase/app';
@@ -14,6 +21,21 @@ export function useAuth() {
     const isLoading = ref(false);
     const showPassword = ref(false);
     const router = useRouter();
+    const user = ref<User | null>(null);
+
+    let unsubscribe: () => void;
+
+    onMounted(() => {
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            user.value = currentUser;
+        });
+    });
+
+    onUnmounted(() => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    });
 
     const clearErrors = () => {
         error.value = '';
@@ -103,6 +125,15 @@ export function useAuth() {
         }
     };
 
+    const logout = async () => {
+        try {
+            await signOut(auth);
+            router.push('/login');
+        } catch (err) {
+            error.value = 'Error al cerrar sesión.';
+        }
+    };
+
     return {
         email,
         password,
@@ -112,8 +143,10 @@ export function useAuth() {
         success,
         isLoading,
         showPassword,
+        user,
         login,
         register,
-        forgotPassword
+        forgotPassword,
+        logout
     };
 }
